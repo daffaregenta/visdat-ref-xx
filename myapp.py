@@ -1,137 +1,112 @@
-# Anggota Kelompok 
-
-# - M Alif Naufal Yasin 1301184321
-# - Novita 1301184101
-# - M Aqmal Pangestu 1301180518
-
-
+from bokeh.core.enums import Orientation
+from bokeh.models.annotations import Title
 import pandas as pd
-from bokeh.io import curdoc
-from bokeh.plotting import figure
-from bokeh.models import HoverTool, ColumnDataSource
-from bokeh.layouts import widgetbox, row
-from bokeh.models import Select
-from bokeh.models import DateRangeSlider
-import datetime as dt
-from bokeh.models.widgets import Tabs, Panel
+import numpy as np
+from bokeh.io import curdoc, output_notebook
+from bokeh.models import ColumnDataSource, Select, Range1d, Div
+from bokeh.plotting import figure, output_file, show
+from bokeh.layouts import column, row
+import random
 
-# Read dataset
-df = pd.read_csv("./country_vaccinations.csv")
+#inisiasi Data
+df = pd.read_csv("./country_wise_latest.csv")
+ArrBenua = np.array(["All"])
+ArrBenua = np.append(ArrBenua,df["WHO Region"].unique())
+ArrCountry = np.array(["All"])
+ArrCountry = np.append(ArrCountry,df["Country/Region"].unique())
+df_Column = np.array(list(df.columns))
+df_Column = np.delete(df_Column, [0,-1])
 
-# Rename column for figure title support
-col = {
-    "total_vaccinations":"Total_Vaccine",
-    "daily_vaccinations":"Daily_Vaccinations"
+# Default value
+case = "Confirmed"
+region = 'All'
+country = 'All'
+theme = 'dark_minimal'
+data = {
+    "x" : df["Country/Region"].values.tolist(),
+    "y" : df[case].values.tolist()
 }
-df.rename(col, axis=1, inplace=True)
+ds = ColumnDataSource(data)
 
-df["Date"] = pd.to_datetime(df["date"]).dt.date
-country_names = df['country'].value_counts().sort_index().index.tolist()
+#sidebar dropdown
+region_select = Select(value=region, title='Benua', options=list(ArrBenua), name="region_select")
+country_select = Select(value=country, title='Negara', options=list(ArrCountry), name="country_select")
+colums_select = Select(value=case, title='Kasus', options=list(df_Column ), name="case_select")
 
-# Replace null/NaN values
-df.fillna(0)
-
-# Data sources
-source_total_vaccine = ColumnDataSource(data={
-    'Date' : df[df['country'] == 'Indonesia']['date'],
-    'Total_Vaccine' : df[df['country'] == 'Indonesia']['Total_Vaccine']
-})
-source_daily_vaccination = ColumnDataSource(data={
-    'Date' : df[df['country'] == 'Indonesia']['date'],
-    'Daily_Vaccinations' : df[df['country'] == 'Indonesia']['Daily_Vaccinations']
-})
-
-# Tooltip
-tooltip_total_vaccine = [
-        ('Date', '@Date{%F}'),
-        ('Total Vaccine', '@Total_Vaccine')
-]
-tooltip_daily_vaccination = [
-        ('Date', '@Date{%F}'),
-        ('Daily Vaccinations', '@Daily_Vaccinations')
-]
-
-fig_data_total_vaccine = figure(x_axis_type='datetime',
-        plot_height=750, plot_width=1000,
-        title='Country Total Vaccinations',
-        x_axis_label='Date', y_axis_label='Total Vaccinations')
-fig_data_daily_vaccination = figure(x_axis_type='datetime',
-        plot_height=750, plot_width=1000,
-        title='Country Daily Vaccinations',
-        x_axis_label='Date', y_axis_label='Daily Vaccinations')
-
-
-fig_data_total_vaccine.add_tools(HoverTool(tooltips = tooltip_total_vaccine, formatters={'@Date':'datetime'}))
-fig_data_daily_vaccination.add_tools(HoverTool(tooltips = tooltip_daily_vaccination, formatters={'@Date':'datetime'}))
-
-
-fig_data_total_vaccine.line('Date', 'Total_Vaccine',
-                color='#CE1141',
-                source=source_total_vaccine)
-fig_data_daily_vaccination.line('Date', 'Daily_Vaccinations',
-                color='#CE1141',
-                source=source_daily_vaccination)
-
-def update_data_total_vaccine(attr,old,new):
-    [start, end] = slider.value
-    date_from = dt.datetime.fromtimestamp(start/1000.0).date()
-    date_until = dt.datetime.fromtimestamp(end/1000.0).date()
-
-    data_location = str(location_select.value)
-
-    # New data
-    loc_date = df[(df['Date'] >= date_from) & (df['Date'] <= date_until)]
-    new_data = {
-        'Date' : loc_date[loc_date['country'] == data_location]['Date'],
-        'Total_Vaccine' : loc_date[loc_date['country'] == data_location]['Total_Vaccine'],
-    }
-    source_total_vaccine.data = new_data
+#def fungsi
+def Handle_Change_Dropdown(attrname, old, new):
+    if region_select.value == "All":
+        country_select.options = list(ArrCountry)
+    else :
+        newCountryList = np.array(["All"])
+        newCountryList = np.append(newCountryList,df['Country/Region'][df["WHO Region"] == region_select.value].to_numpy())
+        country_select.options = list(newCountryList)
     
-def update_data_daily_vaccination(attr, old, new):
-    [start, end] = slider2.value
-    date_from = dt.datetime.fromtimestamp(start/1000.0).date()
-    date_until = dt.datetime.fromtimestamp(end/1000.0).date()
+    update_plot(region_select.value, country_select.value, colums_select.value)
 
-    data_location = str(location_select2.value)
+def update_plot(region, country, case):
+    #Bawaan Global
+    global ds, plt
 
-    #new data
-    loc_date = df[(df['Date'] >= date_from) & (df['Date'] <= date_until)]
-    new_data = {
-        'Date' : loc_date[loc_date['country'] == data_location]['Date'],
-        'Daily_Vaccinations' : loc_date[loc_date['country'] == data_location]['Daily_Vaccinations'],
+    temp = df
+    plt.xaxis.major_label_orientation = "vertical"
+    if region != "All":
+        temp = df.loc[df["WHO Region"] == region]
+        
+    if country != "All":
+        temp = df.loc[df['Country/Region'] == country]
+        plt.xaxis.major_label_orientation = "horizontal"
+
+    data = {
+        "x" : temp['Country/Region'].values.tolist(),
+        "y" : temp[case].values.tolist()
     }
-    source_daily_vaccination.data = new_data
+    ds.data.update(data)
+    plt.x_range.factors = data['x']
+    plt.y_range = Range1d(0, 1000, bounds=(0, None))
+    plt.title.text = "Barplot Benua " + region + ", Negara " + country + ", Kasus " + case 
+
+def Create_Plot():
+    global ds
+    TOOLTIPS = [
+        ("Nama", "@x"),
+        ("Number", "@y"),
+    ]
+    p = figure(x_range=ds.data['x'], height=250, title="Barplot All",sizing_mode="stretch_both",tooltips=TOOLTIPS,toolbar_location="left")
+    p.vbar(x='x', top='y', width=0.9, source=ds)
+    p.xgrid.grid_line_color = None
+    p.xaxis.major_label_orientation = "vertical"
+    return p
     
-location_select = Select(
-    options=[str(x) for x in country_names],
-    value = 'Indonesia',
-    title = 'Country'
-)
-location_select2 = Select(
-    options=[str(x) for x in country_names],
-    value = 'Indonesia',
-    title = 'Country'
-)
 
-location_select.on_change('value',update_data_total_vaccine)
-location_select2.on_change('value',update_data_daily_vaccination)
+region_select.on_change('value',Handle_Change_Dropdown)
+country_select.on_change('value',Handle_Change_Dropdown)
+colums_select.on_change('value',Handle_Change_Dropdown)
 
 
-init_value = (df['Date'].min(), df['Date'].max())
+#init figure All
+plt = Create_Plot()
 
-slider = DateRangeSlider(start = init_value[0], end = init_value[1], value=init_value)
-slider2 = DateRangeSlider(start = init_value[0], end = init_value[1], value=init_value)
-
-slider.on_change('value' ,update_data_total_vaccine) 
-slider2.on_change('value' ,update_data_daily_vaccination)
-
-layout = row(widgetbox(location_select, slider), fig_data_total_vaccine)
-layout2 = row(widgetbox(location_select2, slider2), fig_data_daily_vaccination)
-
-
-panel = Panel(child=layout, title='Country Total Vaccine')
-panel2 = Panel(child=layout2, title='Country Daily Vaccinations')
-
-tabs = Tabs(tabs=[panel2,panel])
-
-curdoc().add_root(tabs)
+# Layouting
+about_text = """
+    <style>
+        .name {
+            border: 1px solid grey;
+            border-radius: 10px;
+            width:100%;
+        }
+    </style>
+    <div>
+        <ul class="name">
+            <li>Yantrisnandra Akbar Maulino</li>
+            <li>Reyhan Septri Asta</li>
+            <li>Bijak Algifan Putra</li>
+        </ul>
+    </div>
+"""
+about = Div(text=about_text, width_policy="max")
+controls = column(row(region_select, country_select, sizing_mode="stretch_width"), colums_select, about)
+main_layout = column(row(controls, plt),sizing_mode="stretch_both")
+curdoc().add_root(main_layout)
+curdoc().title = "Data Covid Dunia"
+curdoc().theme = theme
