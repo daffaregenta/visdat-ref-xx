@@ -73,12 +73,12 @@ con_tooltips = [
 
 dea_tooltips = [
             ('Location', '@Location'),
-            ('New Deaths', '@New New Deaths')
+            ('New Deaths', '@New Deaths')
             ]
 
 rec_tooltips = [
             ('Location', '@Location'),
-            ('New Recovered', '@New New Recovered')
+            ('New Recovered', '@New Recovered')
             ]
 
 # format hover glyph
