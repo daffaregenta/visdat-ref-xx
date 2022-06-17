@@ -16,7 +16,7 @@ from bokeh.layouts import column, row
 from bokeh.models.widgets import Tabs, Panel
 from bokeh.models import CDSView, ColumnDataSource, GroupFilter, Div, HoverTool
 
-df = pd.read_csv("covid_19_indonesia_time_series_all.csv")
+df = pd.read_csv("./covid_19_indonesia_time_series_all.csv")
 df.head()
 
 # read data
